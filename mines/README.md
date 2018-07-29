@@ -1,5 +1,8 @@
 # Command line minesweeper
 
+Implementation of the minesweeper game.
+
+This is an ouput example of the script:
 
 ```txt
 ###########################

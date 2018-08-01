@@ -138,6 +138,39 @@ func fillWithRandomJobs(sequences []int, sequenceSize, numberOfSequences, number
     }
 }
 
+func Max(x, y int) int{
+    if x > y {
+        return x
+    }
+    return y
+}
+
+func computeMakespanOfSequence(sequence []int, sequenceSize int, jobshop JobShopSpecification) int {
+
+    ganttChart := make( []int, jobshop.numberOfMachines )
+    iOperation := make( []int, jobshop.numberOfJobs )
+    previousFinalTimes :=  make( []int, jobshop.numberOfJobs )
+    makespan := 0
+
+    for _, job := range sequence {
+        o := iOperation[job]
+        m := jobshop.operationsMatrix[job][o]
+        d := jobshop.timesMatrix[job][m]
+
+        if o == 0 {
+            ganttChart[m] += d
+        } else {
+            ganttChart[m] = Max(previousFinalTimes[job], ganttChart[m]) + d
+        }
+
+        iOperation[job] += 1
+        previousFinalTimes[job] = ganttChart[m] 
+        makespan = Max( ganttChart[m], makespan )
+    }
+
+    return makespan
+}
+
 func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecification){
 
     numberOfGoRoutines := 4
@@ -145,7 +178,7 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     //  Init population
     sequenceSize := jobshop.numberOfJobs * jobshop.numberOfMachines
     sequences := make( []int, ga.populationSize * sequenceSize )
-    // makespans := make( []int, ga.populationSize )
+    makespans := make( []int, ga.populationSize )
     // ganttChart := make( []int, ga.populationSize * jobshop.numberOfMachines )
     // previousFinalTimes :=  make( []int, ga.populationSize * jobshop.numberOfJobs )
     // iOperation :=  make( []int, ga.populationSize * jobshop.numberOfJobs )
@@ -166,13 +199,13 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         low := s * sequenceSize
         high := low + sequenceSize
         printableSequence := sequences[low:high]
+        makespan := computeMakespanOfSequence(printableSequence, sequenceSize, jobshop)
+        makespans[s] = makespan
         for _, value := range printableSequence {
             fmt.Printf("%d ", value)
         }
-        fmt.Println()
+        fmt.Printf(" | %d\n", makespan)
     }
-
-    // TODO: compute makespans
 
     for g := 0 ; g < ga.numberOfGenerations ; g++ {
         // TODO:

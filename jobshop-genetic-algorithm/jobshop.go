@@ -8,7 +8,8 @@ import (
     "strconv"
     "math/rand"
     "time"
-	"sync"
+    "sync"
+    "sort"
 )
 
 type JobShopSpecification struct {
@@ -171,6 +172,17 @@ func computeMakespanOfSequence(sequence []int, sequenceSize int, jobshop JobShop
     return makespan
 }
 
+func computeSolutions(sequences, makespans []int, numberOfSequences, sequenceSize, idGoRoutine int, jobshop JobShopSpecification, wg *sync.WaitGroup) {
+    defer wg.Done()
+
+    for s := 0; s < numberOfSequences; s++{
+        low := s * sequenceSize
+        high := low + sequenceSize
+        makespan := computeMakespanOfSequence( sequences[low:high], sequenceSize, jobshop)
+        makespans[ numberOfSequences * idGoRoutine + s] = makespan
+    }
+}
+
 func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecification){
 
     numberOfGoRoutines := 4
@@ -182,7 +194,7 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     // ganttChart := make( []int, ga.populationSize * jobshop.numberOfMachines )
     // previousFinalTimes :=  make( []int, ga.populationSize * jobshop.numberOfJobs )
     // iOperation :=  make( []int, ga.populationSize * jobshop.numberOfJobs )
-    // indices := make( []int, ga.populationSize )
+    indices := make( []int, ga.populationSize )
 
     // generate random init population
 	var wg sync.WaitGroup
@@ -195,21 +207,27 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     }
     wg.Wait()
 
-    for s := 0 ; s < ga.populationSize ; s++ {
-        low := s * sequenceSize
-        high := low + sequenceSize
-        printableSequence := sequences[low:high]
-        makespan := computeMakespanOfSequence(printableSequence, sequenceSize, jobshop)
-        makespans[s] = makespan
-        for _, value := range printableSequence {
-            fmt.Printf("%d ", value)
-        }
-        fmt.Printf(" | %d\n", makespan)
+    wg.Add(numberOfGoRoutines)
+    N = ga.populationSize / numberOfGoRoutines
+    for r := 0 ; r < numberOfGoRoutines ; r++{
+        low := r * N * sequenceSize
+        high := low + N * sequenceSize
+        go computeSolutions( sequences[low:high], makespans, N, sequenceSize, r, jobshop, &wg)
+    }
+    wg.Wait()
+
+    for k := 0 ; k < ga.populationSize ; k++ {
+        indices[k] = k
     }
 
     for g := 0 ; g < ga.numberOfGenerations ; g++ {
-        // TODO:
-        // sort sequences by makespan
+        sort.SliceStable(indices, func(i, j int) bool { 
+            x := indices[i]
+            y := indices[j]
+            return makespans[x] < makespans[y] 
+        })
+
+        //TODO:
 
         // selection of individuals
         
@@ -219,6 +237,19 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         // evaluate population (compute makespans)
 
         // update solution with minimal cost
+    }
+
+    for k := 0 ; k < ga.populationSize ; k++ {
+        s := indices[k]
+
+        low := s * sequenceSize
+        high := low + sequenceSize
+        printableSequence := sequences[low:high]
+        makespan := makespans[s]
+        for _, value := range printableSequence {
+            fmt.Printf("%d ", value)
+        }
+        fmt.Printf(" | %d\n", makespan)
     }
     
 }

@@ -107,7 +107,7 @@ func main() {
 
     jobshop := readFile( argsWithoutProg[0] )
 
-    ga := GeneticAlgorithmParameters { numberOfGenerations: 16, populationSize: 16, percentOfCross: 0.5, percentOfMutation: 0.1 }
+    ga := GeneticAlgorithmParameters { numberOfGenerations: 16, populationSize: 16, percentOfCross: 0.3, percentOfMutation: 0.1 }
      
     geneticAlgorithm(ga, jobshop)
 }
@@ -220,6 +220,15 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         indices[k] = k
     }
 
+    limitCross := int( float64(ga.populationSize) * ga.percentOfCross )
+    if limitCross % 2 != 0 {
+        limitCross--
+    }
+    fmt.Println("Number of individuals to be crossed ", limitCross)
+    numberOfChilds := limitCross / 2
+    childs := make([]int, numberOfChilds * sequenceSize)
+    // childsMakespans := make([]int, numberOfChilds)
+
     for g := 0 ; g < ga.numberOfGenerations ; g++ {
         sort.SliceStable(indices, func(i, j int) bool { 
             x := indices[i]
@@ -227,11 +236,25 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
             return makespans[x] < makespans[y] 
         })
 
-        //TODO:
+        // Selection and cross operation
+        for p := 0 ; p < limitCross ; p = p + 2 {
 
-        // selection of individuals
-        
-        // cross operation
+            index1 := indices[p]
+            low1 := index1 * sequenceSize 
+            high1 := low1 + sequenceSize 
+            parent1 :=  sequences[ low1: high1 ]
+
+            index2 := indices[p+1]
+            low2 := index2 * sequenceSize 
+            high2 := low2 + sequenceSize 
+            parent2 :=  sequences[ low2: high2 ]
+
+            low3 := (p/2) * sequenceSize
+            high3 := low3 + sequenceSize
+            child := childs[low3: high3]
+            crossSequences( parent1, parent2, child, p % 2 == 0, jobshop, 0)
+        }
+
         // mutation operation
 
         // evaluate population (compute makespans)
@@ -252,4 +275,63 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         fmt.Printf(" | %d\n", makespan)
     }
     
+}
+
+func crossSequences( parent1, parent2, child []int, odd bool, jobshop JobShopSpecification, idGoRoutine int ) {
+    sequenceSize := len(parent1)
+    r := rand.New( rand.NewSource( time.Now().Unix() * int64(idGoRoutine) * 17) )
+
+    // choose 2 points
+    p1 := r.Intn( sequenceSize )
+    p2 := r.Intn( sequenceSize )
+
+    if p1 > p2 {
+        p1, p2 = p2, p1
+    }
+
+    if odd {
+        parent1, parent2 = parent2, parent1
+    }
+
+    // make cross
+    for k := 0; k < p1; k++{
+        child[k] = parent1[k]
+    }
+    for k := p1; k < p2; k++{
+        child[k] = parent2[k]
+    }
+    for k := p2; k < sequenceSize; k++{
+        child[k] = parent1[k]
+    }
+
+    histogram := make([]int, jobshop.numberOfJobs)
+    for _, job := range child {
+        histogram[job]++
+    }
+
+    // fix sequence
+    o := 0
+    for job, _ := range histogram {
+        for histogram[job] < jobshop.numberOfMachines {
+            // search and element on the child that exceeds the total allowed
+            for histogram[ child[o] ] <= jobshop.numberOfMachines {
+                o++
+            }
+
+            j := child[o]
+            child[o] = job
+            histogram[j]--
+            histogram[job]++
+            o++
+        }
+    }
+
+    // assert sequence
+    for _, job := range child {
+        if histogram[job] != jobshop.numberOfMachines {
+            fmt.Println("Fatal error, some sequence of machine has", histogram[job],"occurrences of job",job,"on his sequence")
+            os.Exit(3)
+        }
+    }
+
 }

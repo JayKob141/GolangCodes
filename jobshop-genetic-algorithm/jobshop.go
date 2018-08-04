@@ -107,7 +107,7 @@ func main() {
 
     jobshop := readFile( argsWithoutProg[0] )
 
-    ga := GeneticAlgorithmParameters { numberOfGenerations: 16, populationSize: 16, percentOfCross: 0.3, percentOfMutation: 0.1 }
+    ga := GeneticAlgorithmParameters { numberOfGenerations: 2000, populationSize: 256, percentOfCross: 0.3, percentOfMutation: 0.1 }
      
     geneticAlgorithm(ga, jobshop)
 }
@@ -227,7 +227,14 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     fmt.Println("Number of individuals to be crossed ", limitCross)
     numberOfChilds := limitCross / 2
     childs := make([]int, numberOfChilds * sequenceSize)
-    // childsMakespans := make([]int, numberOfChilds)
+    childsMakespans := make([]int, numberOfChilds)
+    childsIndices := make([]int, numberOfChilds)
+
+    for k := 0 ; k < numberOfChilds ; k++ {
+        childsIndices[k] = k
+    }
+
+    r := rand.New( rand.NewSource( time.Now().Unix() * int64(1) * 17) )
 
     for g := 0 ; g < ga.numberOfGenerations ; g++ {
         sort.SliceStable(indices, func(i, j int) bool { 
@@ -252,12 +259,40 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
             low3 := (p/2) * sequenceSize
             high3 := low3 + sequenceSize
             child := childs[low3: high3]
-            crossSequences( parent1, parent2, child, p % 2 == 0, jobshop, 0)
+            crossSequences( parent1, parent2, child, p % 2 == 0, jobshop, 0, r)
+
+            childsMakespans[ p/2 ] = computeMakespanOfSequence(child, sequenceSize, jobshop) 
         }
 
-        // mutation operation
+        sort.SliceStable(childsIndices, func(i, j int) bool { 
+            x := childsIndices[i]
+            y := childsIndices[j]
+            return childsMakespans[x] < childsMakespans[y] 
+        })
 
-        // evaluate population (compute makespans)
+        // integrate children to population
+        k := ga.populationSize
+        lowestMakespanChildrens := childsMakespans[ childsIndices[0] ]
+        for makespans[ indices[k - 1] ] > lowestMakespanChildrens && ( (ga.populationSize) - k < numberOfChilds - 1) {
+            k--
+        }
+        for ; k < ga.populationSize; k++ {
+            iChild := ga.populationSize - k
+            makespans[ indices[k] ] = childsMakespans[ childsIndices[iChild] ]
+
+            low := iChild * sequenceSize
+            high := low + sequenceSize
+            child := childs[low: high]
+
+            low2 := indices[k] * sequenceSize
+            high2 := low2 + sequenceSize
+            sequence := sequences[low2: high2]
+            for j := 0 ; j < sequenceSize ; j++ {
+                sequence[j] = child[j]
+            }
+        }
+        
+        // mutation operation
 
         // update solution with minimal cost
     }
@@ -277,9 +312,9 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     
 }
 
-func crossSequences( parent1, parent2, child []int, odd bool, jobshop JobShopSpecification, idGoRoutine int ) {
+func crossSequences( parent1, parent2, child []int, odd bool, jobshop JobShopSpecification, idGoRoutine int, r *rand.Rand ) {
     sequenceSize := len(parent1)
-    r := rand.New( rand.NewSource( time.Now().Unix() * int64(idGoRoutine) * 17) )
+    // r := rand.New( rand.NewSource( time.Now().Unix() * int64(idGoRoutine) * 17) )
 
     // choose 2 points
     p1 := r.Intn( sequenceSize )

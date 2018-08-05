@@ -7,6 +7,7 @@ import (
     "strings"
     "strconv"
     "math/rand"
+    "math"
     "time"
     "sync"
     "sort"
@@ -146,6 +147,13 @@ func Max(x, y int) int{
     return y
 }
 
+func Min(x, y int) int{
+    if x < y {
+        return x
+    }
+    return y
+}
+
 func computeMakespanOfSequence(sequence []int, sequenceSize int, jobshop JobShopSpecification) int {
 
     ganttChart := make( []int, jobshop.numberOfMachines )
@@ -183,6 +191,10 @@ func computeSolutions(sequences, makespans []int, numberOfSequences, sequenceSiz
     }
 }
 
+func mutationOverSequences(sequences, makespans []int, numberOfSequences, sequenceSize, idGoRoutine int, jobshop JobShopSpecification, wg *sync.WaitGroup, rng *rand.Rand) {
+    defer wg.Done()
+}
+
 func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecification){
 
     numberOfGoRoutines := 4
@@ -197,7 +209,7 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     indices := make( []int, ga.populationSize )
 
     // generate random init population
-	var wg sync.WaitGroup
+    var wg sync.WaitGroup
     wg.Add(numberOfGoRoutines)
     N := ga.populationSize / numberOfGoRoutines
     for r := 0 ; r < numberOfGoRoutines ; r++{
@@ -216,8 +228,19 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
     }
     wg.Wait()
 
+
+    rngs := make( []*rand.Rand, numberOfGoRoutines)
+    for i := 0 ; i < numberOfGoRoutines ; i++ {
+        rngs[i] = rand.New( rand.NewSource( time.Now().Unix() * int64(i + 1) * 17) )
+    }
+
+    bestSolution := math.MaxInt32
+
     for k := 0 ; k < ga.populationSize ; k++ {
         indices[k] = k
+
+        // calculate initial best solution
+        bestSolution = Min( bestSolution, makespans[k] )
     }
 
     limitCross := int( float64(ga.populationSize) * ga.percentOfCross )
@@ -261,7 +284,9 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
             child := childs[low3: high3]
             crossSequences( parent1, parent2, child, p % 2 == 0, jobshop, 0, r)
 
-            childsMakespans[ p/2 ] = computeMakespanOfSequence(child, sequenceSize, jobshop) 
+            mk := computeMakespanOfSequence(child, sequenceSize, jobshop) 
+            bestSolution = Min( bestSolution, mk )
+            childsMakespans[ p/2 ] = mk
         }
 
         sort.SliceStable(childsIndices, func(i, j int) bool { 
@@ -293,8 +318,18 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         }
         
         // mutation operation
+        wg.Add(numberOfGoRoutines)
+        for r := 0 ; r < numberOfGoRoutines ; r++{
+            low := r * N * sequenceSize
+            high := low + N * sequenceSize
 
-        // update solution with minimal cost
+            low2 := r * N
+            high2 := low2 + N
+
+            go mutationOverSequences(sequences[low:high], makespans[low2:high2], N, sequenceSize, r, jobshop, &wg, rngs[r])
+        }
+        wg.Wait()
+
     }
 
     for k := 0 ; k < ga.populationSize ; k++ {
@@ -309,6 +344,8 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
         }
         fmt.Printf(" | %d\n", makespan)
     }
+
+    fmt.Println("Best solution found =", bestSolution)
     
 }
 

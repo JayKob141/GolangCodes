@@ -191,8 +191,27 @@ func computeSolutions(sequences, makespans []int, numberOfSequences, sequenceSiz
     }
 }
 
-func mutationOverSequences(sequences, makespans []int, numberOfSequences, sequenceSize, idGoRoutine int, jobshop JobShopSpecification, wg *sync.WaitGroup, rng *rand.Rand) {
+func mutationOverSequences(sequences, makespans []int, numberOfSequences, sequenceSize, idGoRoutine int, jobshop JobShopSpecification, ga GeneticAlgorithmParameters, wg *sync.WaitGroup, rng *rand.Rand, bestMakespan *int) {
     defer wg.Done()
+
+    for i := 0 ; i < numberOfSequences ; i++ {
+        randValue := rng.Float64()
+        if randValue <= ga.percentOfMutation {
+            low := i * sequenceSize
+            high := low + sequenceSize
+
+            sequence := sequences[low:high]
+            for j := 0; j < sequenceSize ; j++ {
+                index := rng.Intn(j + 1)
+
+                sequence[j], sequence[index] = sequence[index], sequence[j]
+            }
+            makespan := computeMakespanOfSequence(sequence, sequenceSize, jobshop)
+            makespans[i] = makespan
+            *bestMakespan = Min(*bestMakespan, makespan)
+        }
+    }
+
 }
 
 func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecification){
@@ -230,8 +249,10 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
 
 
     rngs := make( []*rand.Rand, numberOfGoRoutines)
+    bestMakespansGoRoutines := make([]int, numberOfGoRoutines)
     for i := 0 ; i < numberOfGoRoutines ; i++ {
         rngs[i] = rand.New( rand.NewSource( time.Now().Unix() * int64(i + 1) * 17) )
+        bestMakespansGoRoutines[i] = math.MaxInt32
     }
 
     bestSolution := math.MaxInt32
@@ -326,9 +347,12 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
             low2 := r * N
             high2 := low2 + N
 
-            go mutationOverSequences(sequences[low:high], makespans[low2:high2], N, sequenceSize, r, jobshop, &wg, rngs[r])
+            go mutationOverSequences(sequences[low:high], makespans[low2:high2], N, sequenceSize, r, jobshop, ga, &wg, rngs[r], &bestMakespansGoRoutines[r])
         }
         wg.Wait()
+        for r := 0 ; r < numberOfGoRoutines ; r++{
+            bestSolution = Min( bestSolution, bestMakespansGoRoutines[r])
+        }
 
     }
 

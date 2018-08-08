@@ -108,7 +108,7 @@ func main() {
 
     jobshop := readFile( argsWithoutProg[0] )
 
-    ga := GeneticAlgorithmParameters { numberOfGenerations: 2000, populationSize: 256, percentOfCross: 0.3, percentOfMutation: 0.1 }
+    ga := GeneticAlgorithmParameters { numberOfGenerations: 200, populationSize: 131072, percentOfCross: 0.03, percentOfMutation: 0.007 }
      
     geneticAlgorithm(ga, jobshop)
 }
@@ -216,7 +216,7 @@ func mutationOverSequences(sequences, makespans []int, numberOfSequences, sequen
 
 func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecification){
 
-    numberOfGoRoutines := 4
+    numberOfGoRoutines := 8
     
     //  Init population
     sequenceSize := jobshop.numberOfJobs * jobshop.numberOfMachines
@@ -356,18 +356,18 @@ func geneticAlgorithm(ga GeneticAlgorithmParameters, jobshop JobShopSpecificatio
 
     }
 
-    for k := 0 ; k < ga.populationSize ; k++ {
-        s := indices[k]
+    // for k := 0 ; k < ga.populationSize ; k++ {
+    //     s := indices[k]
 
-        low := s * sequenceSize
-        high := low + sequenceSize
-        printableSequence := sequences[low:high]
-        makespan := makespans[s]
-        for _, value := range printableSequence {
-            fmt.Printf("%d ", value)
-        }
-        fmt.Printf(" | %d\n", makespan)
-    }
+    //     low := s * sequenceSize
+    //     high := low + sequenceSize
+    //     printableSequence := sequences[low:high]
+    //     makespan := makespans[s]
+    //     for _, value := range printableSequence {
+    //         fmt.Printf("%d ", value)
+    //     }
+    //     fmt.Printf(" | %d\n", makespan)
+    // }
 
     fmt.Println("Best solution found =", bestSolution)
     

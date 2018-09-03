@@ -1,1 +1,3 @@
-An api for register in and out people
+Very simple API
+
+An api for register enter and leave dates of users

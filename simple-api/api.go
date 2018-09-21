@@ -118,11 +118,21 @@ func registerLeave(w http.ResponseWriter, r *http.Request) {
 	// w.Write(b)
 }
 
+func wrapHandler(method func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request){
+  return func(w http.ResponseWriter, h *http.Request){
+    // middleware code
+    fmt.Println("middleware here")
+
+    method(w, h)
+  }
+}
+
 func main() {
-	http.HandleFunc("/list-entries/", listEntries)
-	http.HandleFunc("/register-enter/", registerEnter)
-	http.HandleFunc("/register-leave/", registerLeave)
+	http.HandleFunc("/list-entries/", wrapHandler(listEntries))
+	http.HandleFunc("/register-enter/", wrapHandler(registerEnter))
+	http.HandleFunc("/register-leave/", wrapHandler(registerLeave))
 
 	fmt.Println("Running server on: http://localhost:8081")
     log.Fatal(http.ListenAndServe(":8081", nil))
 }
+

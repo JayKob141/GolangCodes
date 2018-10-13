@@ -1,2 +1,2 @@
-# Excercises from the book Mastering go
+# Exercises from the book Mastering go
 
